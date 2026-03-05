@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import type { FormEvent, SVGProps } from "react";
 import { useEffect, useState } from "react";
 
@@ -101,13 +102,47 @@ const ikonAksi = {
   notifikasi: IconLonceng,
 };
 
+type RoleUser = "konsumen" | "kontraktor";
+
+type DummyUser = {
+  id: string;
+  nama: string;
+  email: string;
+  password: string;
+  role: RoleUser;
+};
+
+const dummyUsers: DummyUser[] = [
+  {
+    id: "u-konsumen-1",
+    nama: "Ariel",
+    email: "konsumen@rapiin.id",
+    password: "123456",
+    role: "konsumen",
+  },
+  {
+    id: "u-konsumen-2",
+    nama: "Budi",
+    email: "budi@rapiin.id",
+    password: "123456",
+    role: "konsumen",
+  },
+  {
+    id: "u-kontraktor-1",
+    nama: "CV Atlas Konstruksi",
+    email: "kontraktor@rapiin.id",
+    password: "123456",
+    role: "kontraktor",
+  },
+];
+
 function SplashScreen() {
   return (
-    <main className="splash-bg relative flex min-h-screen items-center justify-center overflow-hidden">
+    <main className="app-shell splash-bg relative flex min-h-screen items-center justify-center overflow-hidden">
       <div className="pointer-events-none absolute -left-14 top-24 h-40 w-40 rounded-full bg-white/8 blur-2xl" />
       <div className="pointer-events-none absolute -right-12 bottom-24 h-44 w-44 rounded-full bg-white/6 blur-2xl" />
       <section className="splash-pop text-center text-white">
-        <div className="splash-logo-wrap relative mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-[32px] border border-white/20 bg-white/12 p-2.5 shadow-[0_16px_34px_rgba(0,0,0,0.35)] backdrop-blur-md">
+        <div className="splash-logo-wrap relative mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-4xl border border-white/20 bg-white/12 p-2.5 shadow-[0_16px_34px_rgba(0,0,0,0.35)] backdrop-blur-md">
           <div className="splash-ring absolute -inset-2.5 rounded-[34px] border border-white/35" />
           <div className="splash-shine pointer-events-none absolute inset-0 rounded-[28px]" />
           <Image
@@ -171,7 +206,7 @@ function OnboardingScreen({
   const active = slides[index];
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-6">
+    <main className="app-shell flex min-h-screen items-center justify-center px-4 py-6">
       <section className="w-full max-w-md rounded-3xl bg-white p-5 soft-shadow">
         <div className="flex items-center justify-between">
           <p className="text-[10px] tracking-[0.28em] text-[#111111]">RAPIIN</p>
@@ -228,9 +263,9 @@ function OnboardingScreen({
 function LoginDummy({
   onLogin,
 }: {
-  onLogin: (email: string) => void;
+  onLogin: (user: DummyUser) => void;
 }) {
-  const [email, setEmail] = useState("demo@rapiin.id");
+  const [email, setEmail] = useState("konsumen@rapiin.id");
   const [password, setPassword] = useState("123456");
   const [error, setError] = useState("");
 
@@ -240,12 +275,21 @@ function LoginDummy({
       setError("Email dan kata sandi wajib diisi.");
       return;
     }
+
+    const user = dummyUsers.find(
+      (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password,
+    );
+    if (!user) {
+      setError("Akun dummy tidak ditemukan. Cek email/kata sandi.");
+      return;
+    }
+
     setError("");
-    onLogin(email);
+    onLogin(user);
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
+    <main className="app-shell flex min-h-screen items-center justify-center px-4">
       <section className="w-full max-w-md rounded-3xl bg-white p-5 soft-shadow">
         <p className="text-[10px] tracking-[0.28em] text-[#111111]">RAPIIN</p>
         <h1 className="mt-2 text-2xl font-semibold text-[#111111]">Masuk Akun</h1>
@@ -296,14 +340,30 @@ function LoginDummy({
         </form>
 
         <p className="mt-3 text-center text-xs text-[--muted]">
-          Akun dummy: <span className="font-mono">demo@rapiin.id / 123456</span>
+          Akun dummy:{" "}
+          <span className="font-mono">konsumen@rapiin.id</span>,{" "}
+          <span className="font-mono">budi@rapiin.id</span>,{" "}
+          <span className="font-mono">kontraktor@rapiin.id</span> (password:{" "}
+          <span className="font-mono">123456</span>)
         </p>
       </section>
     </main>
   );
 }
 
-function Dashboard({ nama }: { nama: string }) {
+function Dashboard({
+  nama,
+  onResetFlow,
+}: {
+  nama: string;
+  onResetFlow: () => void;
+}) {
+  const router = useRouter();
+  const [tabAktif, setTabAktif] = useState<
+    "beranda" | "proyek" | "budget" | "profil"
+  >("beranda");
+  const [infoAksi, setInfoAksi] = useState("");
+
   const tahapan = [
     { nama: "Persiapan Lokasi", progres: 100, status: "Selesai" },
     { nama: "Pekerjaan Struktur", progres: 74, status: "Lancar" },
@@ -345,9 +405,71 @@ function Dashboard({ nama }: { nama: string }) {
     { label: "Notifikasi", key: "notifikasi" as const },
   ];
 
+  function scrollKe(id: string) {
+    const target = document.getElementById(id);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function bukaFilePicker() {
+    const input = document.getElementById(
+      "input-berkas-anggaran",
+    ) as HTMLInputElement | null;
+    input?.click();
+  }
+
+  function handleAksiCepat(
+    key:
+      | "progres"
+      | "estimasi"
+      | "unggah"
+      | "ai"
+      | "anggaran"
+      | "kontraktor"
+      | "laporan"
+      | "notifikasi",
+  ) {
+    if (key === "progres") {
+      setTabAktif("proyek");
+      router.push("/proyek");
+      return;
+    }
+    if (key === "estimasi") {
+      setTabAktif("proyek");
+      router.push("/proyek");
+      return;
+    }
+    if (key === "unggah") {
+      setTabAktif("budget");
+      scrollKe("section-upload");
+      bukaFilePicker();
+      return;
+    }
+    if (key === "ai") {
+      setTabAktif("budget");
+      scrollKe("section-ai");
+      return;
+    }
+    if (key === "anggaran") {
+      setTabAktif("budget");
+      scrollKe("section-budget");
+      return;
+    }
+    if (key === "kontraktor") {
+      setTabAktif("proyek");
+      router.push("/proyek");
+      return;
+    }
+    if (key === "laporan") {
+      setInfoAksi("Halaman laporan siap kamu isi di langkah berikutnya.");
+      return;
+    }
+    setInfoAksi("Belum ada notifikasi baru.");
+  }
+
   return (
-    <main className="relative min-h-screen pb-24 pt-4 md:pt-8">
-      <section className="mx-auto w-full max-w-md px-4">
+    <main className="app-shell app-main relative min-h-screen pt-4">
+      <section className="w-full px-4">
         <header className="reveal rounded-[34px] bg-linear-to-br from-[#2a2a2a] via-[#171717] to-[#000000] p-5 text-white shadow-[0_18px_45px_rgba(0,0,0,0.35)]">
           <div className="flex items-start justify-between">
             <div>
@@ -357,9 +479,20 @@ function Dashboard({ nama }: { nama: string }) {
                 Pantau proyek tanpa biaya bocor
               </p>
             </div>
-            <button className="rounded-full border border-white/30 bg-white/15 px-3 py-1 text-xs backdrop-blur">
-              Langsung
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => scrollKe("quick-actions")}
+                className="rounded-full border border-white/30 bg-white/15 px-3 py-1 text-xs backdrop-blur"
+              >
+                Langsung
+              </button>
+              <button
+                onClick={onResetFlow}
+                className="rounded-full border border-white/30 bg-black/30 px-3 py-1 text-xs backdrop-blur"
+              >
+                Reset Alur
+              </button>
+            </div>
           </div>
 
           <div className="mt-4 overflow-hidden rounded-2xl border border-white/20">
@@ -386,13 +519,23 @@ function Dashboard({ nama }: { nama: string }) {
           </div>
         </header>
 
-        <section className="reveal mt-4 rounded-3xl bg-[--card] p-4 soft-shadow">
+        {infoAksi ? (
+          <section className="reveal mt-4 rounded-2xl border border-[#d4d4d4] bg-[#f2f2f2] px-3 py-2 text-xs text-[#111111]">
+            {infoAksi}
+          </section>
+        ) : null}
+
+        <section
+          id="quick-actions"
+          className="reveal mt-4 rounded-3xl bg-[--card] p-4 soft-shadow"
+        >
           <div className="grid grid-cols-4 gap-3">
             {aksiCepat.map((aksi) => {
               const Icon = ikonAksi[aksi.key];
               return (
                 <button
                   key={aksi.label}
+                  onClick={() => handleAksiCepat(aksi.key)}
                   className="group flex flex-col items-center gap-2 rounded-2xl p-2 transition hover:-translate-y-0.5 hover:bg-[#f1f1f1]"
                 >
                   <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-linear-to-br from-[#f0f0f0] to-[#dddddd] transition group-hover:scale-105">
@@ -407,7 +550,10 @@ function Dashboard({ nama }: { nama: string }) {
           </div>
         </section>
 
-        <section className="reveal mt-4 rounded-3xl bg-[--card] p-4 soft-shadow">
+        <section
+          id="section-progres"
+          className="reveal mt-4 rounded-3xl bg-[--card] p-4 soft-shadow"
+        >
           <div className="mb-3 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-base font-semibold">
               <IconProgres className="h-4 w-4 stroke-[#111111]" />
@@ -435,7 +581,10 @@ function Dashboard({ nama }: { nama: string }) {
           </div>
         </section>
 
-        <section className="reveal mt-4 rounded-3xl bg-[--card] p-4 soft-shadow">
+        <section
+          id="section-estimasi"
+          className="reveal mt-4 rounded-3xl bg-[--card] p-4 soft-shadow"
+        >
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <IconKalkulasi className="h-4 w-4 stroke-[#111111]" />
             Estimasi Selesai Proyek
@@ -452,7 +601,10 @@ function Dashboard({ nama }: { nama: string }) {
           </div>
         </section>
 
-        <section className="reveal mt-4 rounded-3xl bg-[--card] p-4 soft-shadow">
+        <section
+          id="section-upload"
+          className="reveal mt-4 rounded-3xl bg-[--card] p-4 soft-shadow"
+        >
           <div className="flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-base font-semibold">
               <IconUnggah className="h-4 w-4 stroke-[#111111]" />
@@ -469,7 +621,22 @@ function Dashboard({ nama }: { nama: string }) {
           <p className="mt-1 text-xs text-[--muted]">
             Mendukung XLSX, CSV, PDF, DOCX, dan foto kuitansi
           </p>
-          <button className="mt-3 w-full rounded-2xl border border-dashed border-[#bdbdbd] bg-[#f0f0f0] py-3 text-sm font-medium text-[#111111] transition hover:bg-[#e8e8e8]">
+          <input
+            id="input-berkas-anggaran"
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              const total = e.target.files?.length ?? 0;
+              if (total > 0) {
+                setInfoAksi(`${total} berkas dipilih. Siap diproses.`);
+              }
+            }}
+          />
+          <button
+            onClick={bukaFilePicker}
+            className="mt-3 w-full rounded-2xl border border-dashed border-[#bdbdbd] bg-[#f0f0f0] py-3 text-sm font-medium text-[#111111] transition hover:bg-[#e8e8e8]"
+          >
             + Tambah Berkas
           </button>
           <div className="mt-3 space-y-2">
@@ -488,7 +655,10 @@ function Dashboard({ nama }: { nama: string }) {
           </div>
         </section>
 
-        <section className="reveal mt-4 overflow-hidden rounded-3xl bg-[--card] p-4 soft-shadow">
+        <section
+          id="section-ai"
+          className="reveal mt-4 overflow-hidden rounded-3xl bg-[--card] p-4 soft-shadow"
+        >
           <div className="mb-3 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-base font-semibold">
               <IconAI className="h-4 w-4 stroke-[#111111]" />
@@ -516,7 +686,10 @@ function Dashboard({ nama }: { nama: string }) {
           </div>
         </section>
 
-        <section className="reveal mt-4 rounded-3xl bg-[--card] p-4 soft-shadow">
+        <section
+          id="section-budget"
+          className="reveal mt-4 rounded-3xl bg-[--card] p-4 soft-shadow"
+        >
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <IconUang className="h-4 w-4 stroke-[#111111]" />
             Monitoring Pemakaian Budget
@@ -540,7 +713,10 @@ function Dashboard({ nama }: { nama: string }) {
           </div>
         </section>
 
-        <section className="reveal mt-4 rounded-3xl bg-[--card] p-4 soft-shadow">
+        <section
+          id="section-vendor"
+          className="reveal mt-4 rounded-3xl bg-[--card] p-4 soft-shadow"
+        >
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <IconVendor className="h-4 w-4 stroke-[#111111]" />
             Rekomendasi Kontraktor
@@ -560,76 +736,192 @@ function Dashboard({ nama }: { nama: string }) {
           </div>
         </section>
 
-        <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md border-t border-[#d4d4d4] bg-white/92 px-6 py-3 backdrop-blur-xl">
-          <ul className="grid grid-cols-4 gap-2 text-center text-[11px] text-[--muted]">
-            <li className="flex flex-col items-center gap-1 font-semibold text-[#111111]">
-              <IconRumah className="h-4 w-4 stroke-[#111111]" />
-              Beranda
+        <section id="section-profil" className="reveal mt-4 rounded-3xl bg-[--card] p-4 soft-shadow">
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <IconProfil className="h-4 w-4 stroke-[#111111]" />
+            Profil Pengguna
+          </h2>
+          <p className="mt-2 text-sm text-[--muted]">
+            Halo {nama}. Bagian ini bisa kamu isi nanti dengan data profil, pengaturan,
+            dan hak akses user.
+          </p>
+        </section>
+
+        <nav className="bottom-nav-safe fixed bottom-0 left-1/2 z-20 w-full max-w-[430px] -translate-x-1/2 border-t border-[#d4d4d4] bg-white/92 px-6 pt-3 backdrop-blur-xl">
+          <ul className="grid grid-cols-4 gap-2 text-center text-[11px]">
+            <li>
+              <button
+                onClick={() => {
+                  setTabAktif("beranda");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className={`flex w-full flex-col items-center gap-1 ${
+                  tabAktif === "beranda" ? "font-semibold text-[#111111]" : "text-[#6b7280]"
+                }`}
+              >
+                <IconRumah
+                  className={`h-4 w-4 ${tabAktif === "beranda" ? "stroke-[#111111]" : "stroke-[#6b7280]"}`}
+                />
+                Beranda
+              </button>
             </li>
-            <li className="flex flex-col items-center gap-1">
-              <IconProgres className="h-4 w-4 stroke-[#6b7280]" />
-              Proyek
+            <li>
+              <button
+                onClick={() => {
+                  setTabAktif("proyek");
+                  router.push("/proyek");
+                }}
+                className={`flex w-full flex-col items-center gap-1 ${
+                  tabAktif === "proyek" ? "font-semibold text-[#111111]" : "text-[#6b7280]"
+                }`}
+              >
+                <IconProgres
+                  className={`h-4 w-4 ${tabAktif === "proyek" ? "stroke-[#111111]" : "stroke-[#6b7280]"}`}
+                />
+                Proyek
+              </button>
             </li>
-            <li className="flex flex-col items-center gap-1">
-              <IconUang className="h-4 w-4 stroke-[#6b7280]" />
-              Budget
+            <li>
+              <button
+                onClick={() => {
+                  setTabAktif("budget");
+                  scrollKe("section-budget");
+                }}
+                className={`flex w-full flex-col items-center gap-1 ${
+                  tabAktif === "budget" ? "font-semibold text-[#111111]" : "text-[#6b7280]"
+                }`}
+              >
+                <IconUang
+                  className={`h-4 w-4 ${tabAktif === "budget" ? "stroke-[#111111]" : "stroke-[#6b7280]"}`}
+                />
+                Budget
+              </button>
             </li>
-            <li className="flex flex-col items-center gap-1">
-              <IconProfil className="h-4 w-4 stroke-[#6b7280]" />
-              Profil
+            <li>
+              <button
+                onClick={() => {
+                  setTabAktif("profil");
+                  scrollKe("section-profil");
+                }}
+                className={`flex w-full flex-col items-center gap-1 ${
+                  tabAktif === "profil" ? "font-semibold text-[#111111]" : "text-[#6b7280]"
+                }`}
+              >
+                <IconProfil
+                  className={`h-4 w-4 ${tabAktif === "profil" ? "stroke-[#111111]" : "stroke-[#6b7280]"}`}
+                />
+                Profil
+              </button>
             </li>
           </ul>
         </nav>
       </section>
 
-      <section className="mx-auto mt-6 hidden max-w-5xl px-4 md:block">
-        <article className="reveal rounded-3xl border border-[#d4d4d4] bg-white/80 p-6 backdrop-blur-md soft-shadow">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-[--muted]">
-            Panel Pendamping Desktop
-          </p>
-          <h3 className="mt-2 text-xl font-semibold">Ringkasan Cepat Proyek</h3>
-          <p className="mt-2 text-sm text-[--muted]">
-            Desain utama tetap mobile-first, desktop dipakai sebagai panel monitor
-            tambahan dengan gaya visual yang sama.
-          </p>
-        </article>
-      </section>
     </main>
   );
 }
 
 export default function Home() {
   const [fase, setFase] = useState<
-    "splash" | "onboarding" | "login" | "dashboard"
-  >("splash");
-  const [namaUser, setNamaUser] = useState("Ariel");
+    "booting" | "splash" | "onboarding" | "login" | "dashboard"
+  >("booting");
+  const [namaUser, setNamaUser] = useState(() => {
+    if (typeof window === "undefined") return "Ariel";
+    return localStorage.getItem("rapiin_user_name") || "Ariel";
+  });
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    let timer = 0;
+    const bootstrap = window.setTimeout(() => {
+      const splashShown = sessionStorage.getItem("rapiin_splash_shown") === "1";
+      const onboardingDone = localStorage.getItem("rapiin_onboarding_done") === "1";
+      const hasSessionUser = Boolean(localStorage.getItem("rapiin_session_user"));
+      const isLoggedIn =
+        localStorage.getItem("rapiin_logged_in") === "1" && hasSessionUser;
+
+      if (!splashShown) {
+        sessionStorage.setItem("rapiin_splash_shown", "1");
+        setFase("splash");
+        timer = window.setTimeout(() => {
+          if (isLoggedIn) {
+            setFase("dashboard");
+            return;
+          }
+          if (onboardingDone) {
+            setFase("login");
+            return;
+          }
+          setFase("onboarding");
+        }, 1700);
+        return;
+      }
+
+      if (isLoggedIn) {
+        setFase("dashboard");
+        return;
+      }
+      if (onboardingDone) {
+        setFase("login");
+        return;
+      }
       setFase("onboarding");
-    }, 1700);
-    return () => window.clearTimeout(timer);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(bootstrap);
+      if (timer) window.clearTimeout(timer);
+    };
   }, []);
+
+  if (fase === "booting") {
+    return null;
+  }
 
   if (fase === "splash") {
     return <SplashScreen />;
   }
 
   if (fase === "onboarding") {
-    return <OnboardingScreen onFinish={() => setFase("login")} />;
+    return (
+      <OnboardingScreen
+        onFinish={() => {
+          localStorage.setItem("rapiin_onboarding_done", "1");
+          setFase("login");
+        }}
+      />
+    );
   }
 
   if (fase === "login") {
     return (
       <LoginDummy
-        onLogin={(email) => {
-          const nama = email.split("@")[0] || "Pengguna";
-          setNamaUser(nama.charAt(0).toUpperCase() + nama.slice(1));
+        onLogin={(user) => {
+          setNamaUser(user.nama);
+          localStorage.setItem("rapiin_logged_in", "1");
+          localStorage.setItem("rapiin_onboarding_done", "1");
+          localStorage.setItem("rapiin_user_name", user.nama);
+          localStorage.setItem("rapiin_user_role", user.role);
+          localStorage.setItem("rapiin_user_id", user.id);
+          localStorage.setItem("rapiin_session_user", JSON.stringify(user));
           setFase("dashboard");
         }}
       />
     );
   }
 
-  return <Dashboard nama={namaUser} />;
+  return (
+    <Dashboard
+      nama={namaUser}
+      onResetFlow={() => {
+        localStorage.removeItem("rapiin_logged_in");
+        localStorage.removeItem("rapiin_onboarding_done");
+        localStorage.removeItem("rapiin_user_name");
+        localStorage.removeItem("rapiin_user_role");
+        localStorage.removeItem("rapiin_user_id");
+        localStorage.removeItem("rapiin_session_user");
+        sessionStorage.removeItem("rapiin_splash_shown");
+        window.location.href = "/";
+      }}
+    />
+  );
 }
